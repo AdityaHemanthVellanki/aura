@@ -1,0 +1,139 @@
+{
+  "aura_personality_questions": [
+    {
+      "id": 1,
+      "category": "Icebreaker",
+      "question": "Hey! Before we dive in — what are three words you think describe you best, and why those?",
+      "follow_ups": [
+        "That’s an interesting mix — can you tell me why those words stand out to you?",
+        "Do your friends or family see you that way too, or differently?"
+      ]
+    },
+    {
+      "id": 2,
+      "category": "Icebreaker",
+      "question": "What does your perfect day look like — if you could plan it exactly how you wanted?",
+      "follow_ups": [
+        "That sounds amazing — what part of that day matters the most to you?",
+        "Would you say that’s more of a typical day or your dream one?"
+      ]
+    },
+    {
+      "id": 3,
+      "category": "Communication Style",
+      "question": "How do you usually start a conversation with someone new?",
+      "follow_ups": [
+        "Nice — does that approach change depending on who you’re talking to?",
+        "Would you say you’re more of an initiator or someone who waits for others to start talking?"
+      ]
+    },
+    {
+      "id": 4,
+      "category": "Communication Style",
+      "question": "When you’re giving advice, do you tend to be direct, gentle, or maybe a bit playful?",
+      "follow_ups": [
+        "That says a lot about your communication style — why do you think that works best for you?",
+        "Have people ever told you they appreciate that about you?"
+      ]
+    },
+    {
+      "id": 5,
+      "category": "Social Energy",
+      "question": "Do you usually gain energy from being around people, or from having some quiet alone time?",
+      "follow_ups": [
+        "Interesting — has that always been the case, or has it changed over time?",
+        "How do you usually recharge after a long week?"
+      ]
+    },
+    {
+      "id": 6,
+      "category": "Social Energy",
+      "question": "How do you like to spend your weekends — out with friends, relaxing, or doing your own thing?",
+      "follow_ups": [
+        "Sounds like a great balance — what’s one weekend activity you look forward to most?",
+        "Would you describe yourself as more spontaneous or more of a planner?"
+      ]
+    },
+    {
+      "id": 7,
+      "category": "Emotional Expression",
+      "question": "When you’re upset, do you prefer to talk about it or keep to yourself for a while?",
+      "follow_ups": [
+        "That’s relatable — does that approach usually help you feel better?",
+        "Who’s the first person you’d usually go to if you *do* decide to talk?"
+      ]
+    },
+    {
+      "id": 8,
+      "category": "Emotional Expression",
+      "question": "How do you usually comfort someone who’s feeling down?",
+      "follow_ups": [
+        "That’s really thoughtful — has anyone ever comforted *you* in a way that stuck with you?",
+        "Do you think your way of comforting people reflects how you like to be comforted too?"
+      ]
+    },
+    {
+      "id": 9,
+      "category": "Thought Process",
+      "question": "When you’re faced with a problem, what’s your first instinct — to analyze it or to feel it out?",
+      "follow_ups": [
+        "Interesting — can you think of a recent example where that approach really worked for you?",
+        "Would you say you’re more driven by logic or by intuition overall?"
+      ]
+    },
+    {
+      "id": 10,
+      "category": "Thought Process",
+      "question": "How do you usually handle disagreements — do you enjoy debating or prefer to find common ground?",
+      "follow_ups": [
+        "That’s a healthy approach — does it depend on who the disagreement is with?",
+        "Have you ever had a debate that actually changed your mind about something?"
+      ]
+    },
+    {
+      "id": 11,
+      "category": "Passions & Interests",
+      "question": "What are some things you could talk about for hours without getting bored?",
+      "follow_ups": [
+        "Nice — what draws you to that topic so much?",
+        "If someone wanted to understand you better, should they learn about that topic too?"
+      ]
+    },
+    {
+      "id": 12,
+      "category": "Core Values",
+      "question": "When you make big decisions, what matters most to you — logic, emotion, or intuition?",
+      "follow_ups": [
+        "That’s fascinating — do you think that decision style has helped you in most cases?",
+        "Would people close to you describe your decisions the same way?"
+      ]
+    },
+    {
+      "id": 13,
+      "category": "Self-Reflection",
+      "question": "How would your friends describe you in one sentence?",
+      "follow_ups": [
+        "That’s interesting — do you agree with that description?",
+        "Is there something you think they *don’t* see about you?"
+      ]
+    },
+    {
+      "id": 14,
+      "category": "Self-Reflection",
+      "question": "What’s something you wish more people understood about you?",
+      "follow_ups": [
+        "That’s really insightful — why do you think people often miss that about you?",
+        "Do you usually try to show that side of yourself, or keep it private?"
+      ]
+    },
+    {
+      "id": 15,
+      "category": "Self-Reflection",
+      "question": "If someone built an AI version of you — what should it definitely have to feel like 'you'?",
+      "follow_ups": [
+        "That’s a beautiful way to end — what part of your personality do you think would be hardest for an AI to capture?",
+        "Would you want your Aura to act exactly like you, or to be a slightly better version?"
+      ]
+    }
+  ]
+}
