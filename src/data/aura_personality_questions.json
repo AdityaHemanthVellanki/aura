@@ -1,0 +1,17 @@
+[
+  { "id": "q1", "category": "identity", "question": "What’s your name?", "follow_ups": ["Do you prefer a nickname?", "How do friends describe you?"] },
+  { "id": "q2", "category": "values", "question": "What matters most to you right now?", "follow_ups": ["Why is that important?", "How does it guide your decisions?"] },
+  { "id": "q3", "category": "routine", "question": "What does a good day look like?", "follow_ups": ["What’s your ideal morning?", "How do you unwind?"] },
+  { "id": "q4", "category": "goals", "question": "What are you working toward this month?", "follow_ups": ["What’s one small next step?", "What might get in the way?"] },
+  { "id": "q5", "category": "strengths", "question": "What are you good at?", "follow_ups": ["Where did you learn that?", "How do you use it daily?"] },
+  { "id": "q6", "category": "learning", "question": "What would you love to learn next?", "follow_ups": ["What’s a first step?", "Who inspires you here?"] },
+  { "id": "q7", "category": "relationships", "question": "Who do you feel most connected to?", "follow_ups": ["What makes that bond strong?", "How do you stay in touch?"] },
+  { "id": "q8", "category": "energy", "question": "What gives you energy?", "follow_ups": ["What drains you?", "How do you recharge?"] },
+  { "id": "q9", "category": "habits", "question": "What habit would you like to build?", "follow_ups": ["What’s a tiny version of it?", "When will you practice it?"] },
+  { "id": "q10", "category": "mindset", "question": "What belief helps you keep going?", "follow_ups": ["Where did it come from?", "How does it show up?"] },
+  { "id": "q11", "category": "work", "question": "What’s your work like these days?", "follow_ups": ["What do you enjoy most?", "What’s challenging now?"] },
+  { "id": "q12", "category": "health", "question": "How are you taking care of yourself?", "follow_ups": ["What’s one self-care win?", "What could you improve?"] },
+  { "id": "q13", "category": "fun", "question": "What do you do for fun?", "follow_ups": ["Who do you share it with?", "How often do you make time?"] },
+  { "id": "q14", "category": "memories", "question": "What recent moment are you proud of?", "follow_ups": ["What did you learn?", "How did it feel?"] },
+  { "id": "q15", "category": "future", "question": "Where would you like to be in a year?", "follow_ups": ["What’s one step now?", "What support do you need?"] }
+]
