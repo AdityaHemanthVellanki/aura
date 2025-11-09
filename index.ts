@@ -15,9 +15,7 @@ registerRootComponent(App);
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
-      interruptionModeIOS: (Audio as any).InterruptionModeIOS?.DoNotMix ?? (Audio as any).INTERRUPTION_MODE_IOS_DO_NOT_MIX,
       shouldDuckAndroid: true,
-      interruptionModeAndroid: (Audio as any).InterruptionModeAndroid?.DoNotMix ?? (Audio as any).INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
     });
   } catch (e) {
     // Non-fatal; permissions may not be granted yet.

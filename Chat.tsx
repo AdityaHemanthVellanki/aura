@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadProfile, saveProfile } from './src/lib/localStore';
 import { generateReply, createVoice } from './src/lib/api';
 import { useTheme } from './src/components/ThemeProvider';
+
+const BASE_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000';
 
 export default function Chat({ route }: any) {
   const [message, setMessage] = useState('');
@@ -36,6 +40,28 @@ export default function Chat({ route }: any) {
       if (route?.params?.initialText) {
         setMessage(route.params.initialText);
       }
+      // resolve voiceId from profile or confirm default
+      try {
+        const prof = await loadProfile();
+        if (prof?.voiceId) {
+          setVoiceId(prof.voiceId);
+        } else {
+          const resp = await fetch(`${BASE_URL}/api/voiceCheck`);
+          const data = await resp.json();
+          if (data?.ok && data.voiceId) {
+            const accepted = await new Promise<boolean>((resolve) => {
+              Alert.alert('Use default voice?', `Voice not set — using default voice id: ${data.voiceId}`, [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Use Default', onPress: () => resolve(true) },
+              ]);
+            });
+            if (accepted) {
+              setVoiceId(data.voiceId);
+              await saveProfile({ ...(prof || {}), voiceId: data.voiceId, voicePending: false });
+            }
+          }
+        }
+      } catch {}
     })();
   }, [route?.params?.initialText]);
 
@@ -62,15 +88,61 @@ export default function Chat({ route }: any) {
     await AsyncStorage.setItem(`chat:${userId}`, JSON.stringify(lastFive));
   };
 
+  const playAuraTTS = async (text: string, voiceId?: string) => {
+    // Skip playback if muted
+    const muted = (await AsyncStorage.getItem('aura:muted')) === 'true';
+    if (muted) return;
+    const vid = voiceId || (await (async () => voiceId)());
+    if (!vid) {
+      Alert.alert('Voice not set', 'Please set a voice in Onboarding.');
+      return;
+    }
+
+    // Strip newlines for TTS
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    const resp = await fetch(`${BASE_URL}/api/auraTalk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: normalized, voiceId: vid, userId }),
+    });
+    if (!resp.ok) {
+      console.warn('auraTalk failed', await resp.text());
+      Alert.alert('Audio error', 'We’re having trouble producing audio for your selected Aura voice. Try again later or pick a different voice in settings.');
+      return;
+    }
+    const data = await resp.json();
+    const fileUri = data?.audioUrl as string | undefined;
+    if (!fileUri) {
+      console.warn('Missing audioUrl in auraTalk response');
+      return;
+    }
+    if (sound) {
+      await sound.unloadAsync();
+      setSound(null);
+    }
+    const { sound: newSound } = await Audio.Sound.createAsync({ uri: fileUri });
+    setSound(newSound);
+    await newSound.playAsync();
+    setAudioUrl(fileUri);
+  };
+
   const onSend = async () => {
     if (!message.trim()) return;
     const next = [...messages, { from: 'user' as const, text: message.trim() }];
     await persist(next);
-    const res = await generateReply(message.trim(), userId, voiceId);
-    const auraMsg = { from: 'aura' as const, text: res.text, audioUrl: res.audioUrl };
-    setAudioUrl(res.audioUrl);
+    // Call /api/auraChat
+    const chatResp = await fetch(`${BASE_URL}/api/auraChat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: message.trim() }] }),
+    });
+    const chatJson = await chatResp.json();
+    const replyText = chatJson.text || '';
+    const auraMsg = { from: 'aura' as const, text: replyText };
     await persist([...next, auraMsg]);
     setMessage('');
+    // Play via /api/auraTalk
+    await playAuraTTS(replyText, voiceId);
   };
 
   const onCreateVoice = async () => {
@@ -82,6 +154,23 @@ export default function Chat({ route }: any) {
     const res = await createVoice([], 'aura-user', userId);
     setVoiceId(res.voice_id);
   };
+
+  useEffect(() => {
+    (async () => {
+      // Voice identity check on first load
+      try {
+        const resp = await fetch(`${BASE_URL}/api/voiceCheck`);
+        if (!resp.ok) {
+          console.warn('⚠️ Aura voice not found in ElevenLabs. Using fallback voice.');
+        } else {
+          const data = await resp.json();
+          console.log('Voice:', data.voiceName || data.voiceId);
+        }
+      } catch (e) {
+        console.warn('voiceCheck error', (e as any)?.message);
+      }
+    })();
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: t.colors.background }] }>

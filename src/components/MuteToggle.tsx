@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from './ThemeProvider';
 import { getMute, setMute } from '../lib/localStore';
 
@@ -21,7 +22,7 @@ export const MuteToggle: React.FC<{ accessibilityLabel?: string }> = ({ accessib
     <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      onPress={() => setMuted(!muted)}
+      onPress={async () => { await Haptics.selectionAsync(); setMuted(!muted); }}
       style={[styles.btn]}
     >
       <View style={[styles.dot, { backgroundColor: muted ? '#999' : t.colors.black }]} />
@@ -34,4 +35,3 @@ const styles = StyleSheet.create({
   btn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10 },
   dot: { width: 12, height: 12, borderRadius: 6 },
 });
-

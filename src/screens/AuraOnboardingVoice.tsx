@@ -2,14 +2,17 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { useTheme } from '../components/ThemeProvider';
 import { VoicePlayer } from '../components/VoicePlayer';
+import { Audio } from 'expo-av';
 import { AutoRecorder } from '../components/AutoRecorder';
+import { ConsentModal } from '../components/ConsentModal';
 import { ActivateButton } from '../components/ActivateButton';
 import { ReadyIndicator } from '../components/ReadyIndicator';
 import { MuteProvider, MuteToggle, useMute } from '../components/MuteToggle';
 import questionsJson from '../data/aura_personality_questions.json';
-import { appendAnswer, saveAudioFromUri, saveProfile, loadProfile, setConsent } from '../lib/localStore';
+import { appendAnswer, saveAudioFromUri, saveProfile, loadProfile, setConsent, getCurrentQuestion, setCurrentQuestion } from '../lib/localStore';
 import { genUniqueUsername } from '../lib/username';
 
 type QA = { id: string; category: string; question: string; follow_ups?: string[] };
@@ -18,9 +21,15 @@ const BASE_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000';
 
 async function transcribeUpload(uri: string): Promise<string> {
   try {
-    const form = new FormData();
-    form.append('file', { uri, name: 'clip.wav', type: 'audio/wav' } as any);
-    const res = await fetch(`${BASE_URL}/api/transcribe`, { method: 'POST', body: form });
+    const b64 = await readAsStringAsync(uri, { encoding: 'base64' as any });
+    if (!b64 || b64.length === 0) return '';
+    const res = await fetch(`${BASE_URL}/api/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audioBase64: b64 }),
+    });
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (!ct.includes('application/json')) return '';
     const data = await res.json();
     return (data?.text || '').trim();
   } catch {
@@ -32,8 +41,13 @@ function ScreenInner({ navigation }: any) {
   const t = useTheme();
   const { muted, setMuted } = useMute();
   const [phase, setPhase] = useState<'speaking' | 'listening' | 'processing'>('speaking');
+  const [lastEmotion, setLastEmotion] = useState<string>('neutral');
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [lastAudioUrl, setLastAudioUrl] = useState<string | undefined>(undefined);
+  const [lastAudioBytes, setLastAudioBytes] = useState<number | undefined>(undefined);
+  const [lastLocalAudioPath, setLastLocalAudioPath] = useState<string | undefined>(undefined);
+  const [lastPlaybackStatus, setLastPlaybackStatus] = useState<string | undefined>(undefined);
   const [name, setName] = useState<string>('');
   const [username, setUsername] = useState<string>('');
   const [totalRecSec, setTotalRecSec] = useState(0);
@@ -41,12 +55,12 @@ function ScreenInner({ navigation }: any) {
   const [introDone, setIntroDone] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
   const [manualRecordingActive, setManualRecordingActive] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
   const questions: QA[] = useMemo(() => questionsJson as any, []);
 
   useEffect(() => {
     (async () => {
-      const idxRaw = await AsyncStorage.getItem('aura:currentQuestionIndex_voice');
-      const idx = idxRaw ? parseInt(idxRaw, 10) : 0;
+      const idx = await getCurrentQuestion();
       setCurrentIndex(Number.isFinite(idx) ? idx : 0);
       const prof = await loadProfile();
       if (prof?.name) {
@@ -86,18 +100,24 @@ function ScreenInner({ navigation }: any) {
       if (uri) {
         setTotalRecSec((s) => s + dur);
         const entry = await saveAudioFromUri(uri);
+        setLastLocalAudioPath(entry.uri);
         let text = await transcribeUpload(entry.uri);
         if (!text) text = await transcribeUpload(entry.uri); // retry
         if (!text) {
           Alert.alert('I didn’t catch that', 'Please say your name again.');
           return restartName();
         }
+        try {
+  const emoResp = await fetch(`${BASE_URL}/api/hume/analyzeEmotion`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript: text }) });
+          const emoJson = await emoResp.json();
+          if (emoJson?.ok && emoJson.emotion) setLastEmotion(String(emoJson.emotion));
+        } catch {}
         const base = text.split(/\s+/).slice(0, 3).join(' ');
         const uname = await genUniqueUsername(base);
         setName(base);
         setUsername(uname);
         await saveProfile({ name: base, username: uname, createdAt: Date.now() });
-        await AsyncStorage.setItem('aura:currentQuestionIndex_voice', '0');
+        await setCurrentQuestion(0);
         await speakNextQuestion(0);
       } else {
         Alert.alert('Microphone error', 'Could not record name.');
@@ -117,7 +137,7 @@ function ScreenInner({ navigation }: any) {
   const speakNextQuestion = async (index: number) => {
     if (index >= questions.length) return summarizeProfile();
     setCurrentIndex(index);
-    await AsyncStorage.setItem('aura:currentQuestionIndex_voice', String(index));
+    await setCurrentQuestion(index);
     setPhase('speaking');
   };
 
@@ -130,8 +150,14 @@ function ScreenInner({ navigation }: any) {
       }
       setTotalRecSec((s) => s + dur);
       const entry = await saveAudioFromUri(uri);
+      setLastLocalAudioPath(entry.uri);
       let text = await transcribeUpload(entry.uri);
       if (!text) text = await transcribeUpload(entry.uri); // retry
+      try {
+      const emoResp = await fetch(`${BASE_URL}/api/hume/analyzeEmotion`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript: text }) });
+        const emoJson = await emoResp.json();
+        if (emoJson?.ok && emoJson.emotion) setLastEmotion(String(emoJson.emotion));
+      } catch {}
       const lower = text.toLowerCase();
       const skipped = lower.includes('skip');
       await appendAnswer({
@@ -228,6 +254,13 @@ function ScreenInner({ navigation }: any) {
         </View>
       </View>
 
+      {/* Device audio hint */}
+      <View style={{ paddingHorizontal: 16 }}>
+        <Text style={{ color: t.colors.textMuted, fontSize: 12 }}>
+          Tip: Make sure your iPhone Ring/Silent switch is not set to Silent and volume is up.
+        </Text>
+      </View>
+
       {loading && (
         <View style={{ padding: 8 }}><ActivityIndicator /></View>
       )}
@@ -243,11 +276,25 @@ function ScreenInner({ navigation }: any) {
         )}
 
         {isActivated && !introDone && (
-          <VoicePlayer text={"Hey — I’m Aura. I’ll ask you a few questions. After each, answer when you hear the beep."} onDone={onIntroSpoken} muted={muted} />
+        <VoicePlayer
+          text={"Hey — I’m Aura. I’ll ask you a few questions. After each, answer when you hear the beep."}
+          emotion={lastEmotion}
+          onDone={onIntroSpoken}
+          muted={muted}
+          onMeta={(m) => { setLastAudioUrl(m.audioUrl); setLastAudioBytes(m.size); }}
+          onStatus={(st) => { setLastPlaybackStatus(st?.didJustFinish ? 'finished' : st?.isPlaying ? 'playing' : st?.isLoaded ? 'loaded' : 'idle'); }}
+        />
         )}
 
         {isActivated && introDone && !name && phase === 'speaking' && (
-          <VoicePlayer text={"What’s your name?"} onDone={afterSpeak} muted={muted} />
+        <VoicePlayer
+          text={"What’s your name?"}
+          emotion={lastEmotion}
+          onDone={afterSpeak}
+          muted={muted}
+          onMeta={(m) => { setLastAudioUrl(m.audioUrl); setLastAudioBytes(m.size); }}
+          onStatus={(st) => { setLastPlaybackStatus(st?.didJustFinish ? 'finished' : st?.isPlaying ? 'playing' : st?.isLoaded ? 'loaded' : 'idle'); }}
+        />
         )}
 
         {isActivated && introDone && !name && phase === 'listening' && (
@@ -268,7 +315,14 @@ function ScreenInner({ navigation }: any) {
         )}
 
         {isActivated && introDone && !!name && currentIndex < questions.length && phase === 'speaking' && (
-          <VoicePlayer text={questions[currentIndex].question} onDone={afterSpeak} muted={muted} />
+        <VoicePlayer
+          text={questions[currentIndex].question}
+          emotion={lastEmotion}
+          onDone={afterSpeak}
+          muted={muted}
+          onMeta={(m) => { setLastAudioUrl(m.audioUrl); setLastAudioBytes(m.size); }}
+          onStatus={(st) => { setLastPlaybackStatus(st?.didJustFinish ? 'finished' : st?.isPlaying ? 'playing' : st?.isLoaded ? 'loaded' : 'idle'); }}
+        />
         )}
 
         {isActivated && introDone && !!name && phase === 'listening' && (
@@ -289,22 +343,24 @@ function ScreenInner({ navigation }: any) {
         )}
 
         {isActivated && introDone && currentIndex >= questions.length && phase === 'speaking' && (
-          <VoicePlayer text={"To continue, please say: ‘I consent to Aura creating a digital version of my voice.’"} onDone={afterSpeak} muted={muted} />
+        <VoicePlayer
+          text={"To continue, please say: ‘I consent to Aura creating a digital version of my voice.’"}
+          emotion={lastEmotion}
+          onDone={afterSpeak}
+          muted={muted}
+          onMeta={(m) => { setLastAudioUrl(m.audioUrl); setLastAudioBytes(m.size); }}
+          onStatus={(st) => { setLastPlaybackStatus(st?.didJustFinish ? 'finished' : st?.isPlaying ? 'playing' : st?.isLoaded ? 'loaded' : 'idle'); }}
+        />
         )}
 
         {isActivated && introDone && currentIndex >= questions.length && phase === 'listening' && (
           <>
             <ReadyIndicator />
-            {(isActivated && !muted) && (
-              <AutoRecorder active={true} maxDurationSec={10} onRecorded={(uri) => onConsentRecorded(uri)} muted={muted} />
-            )}
-            {(muted) && (
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Record your consent" onPress={() => setManualRecordingActive(true)} style={{ marginTop: 16 }}>
-                <Text style={{ color: t.colors.black, fontWeight: '700' }}>Record</Text>
+            <ConsentModal visible={!muted || showConsentModal} onClose={() => setShowConsentModal(false)} muted={muted} onRecorded={(uri) => onConsentRecorded(uri)} />
+            {muted && !showConsentModal && (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Record your consent" onPress={() => setShowConsentModal(true)} style={{ marginTop: 16 }}>
+                <Text style={{ color: t.colors.black, fontWeight: '700' }}>Open Consent</Text>
               </TouchableOpacity>
-            )}
-            {manualRecordingActive && (
-              <AutoRecorder active={true} maxDurationSec={10} onRecorded={(uri) => { setManualRecordingActive(false); onConsentRecorded(uri); }} muted={muted} />
             )}
           </>
         )}
@@ -315,6 +371,48 @@ function ScreenInner({ navigation }: any) {
           {!isActivated ? 'Inactive' : phase === 'speaking' ? (muted ? 'Speaking… (muted)' : 'Speaking…') : phase === 'listening' ? (muted ? 'Ready — tap Record' : 'Listening…') : 'Processing…'}
         </Text>
         {!!name && <Text style={{ color: t.colors.textMuted, marginTop: 8 }}>Name: {name} • Username: {username}</Text>}
+        {__DEV__ && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ color: t.colors.textMuted, fontSize: 12 }}>
+              lastEmotion: {lastEmotion || 'n/a'}{"\n"}
+              lastAudioUrl: {lastAudioUrl || 'n/a'}{"\n"}
+              lastAudioBytes: {typeof lastAudioBytes === 'number' ? String(lastAudioBytes) : 'n/a'}{"\n"}
+              lastLocalAudioPath: {lastLocalAudioPath || 'n/a'}{"\n"}
+              playback: {lastPlaybackStatus || 'n/a'}
+            </Text>
+          </View>
+        )}
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+          <TouchableOpacity onPress={() => { setIntroDone(false); speakIntro(); }}>
+            <Text style={{ color: t.colors.textPrimary }}>Replay Intro</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const text = 'Test audio for onboarding diagnostics.';
+                const resp = await fetch(`${BASE_URL}/api/hume/diagnostics`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+                const json = await resp.json();
+                if (json?.ok && json.audioUrl) {
+                  Alert.alert('Diagnostics', `audioUrl: ${json.audioUrl}\nbytes: ${json.bytes}\nsample[64]: ${json.sampleStartBase64}`);
+                  try {
+                    const { sound } = await Audio.Sound.createAsync({ uri: json.audioUrl }, { shouldPlay: true });
+                    sound.setOnPlaybackStatusUpdate((st: any) => {
+                      if (st?.error) Alert.alert('Playback error', String(st.error));
+                    });
+                  } catch (e: any) {
+                    Alert.alert('Playback failed', e?.message || 'unknown');
+                  }
+                } else {
+                  Alert.alert('Diagnostics failed', JSON.stringify(json));
+                }
+              } catch (e: any) {
+                Alert.alert('Diagnostics error', e?.message || 'unknown');
+              }
+            }}
+          >
+            <Text style={{ color: t.colors.textMuted }}>Play Test TTS</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );

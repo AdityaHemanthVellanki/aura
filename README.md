@@ -7,6 +7,24 @@ Expo (React Native + TypeScript) app for Aura.
 - `npm run ios` builds/runs native iOS.
 - `npm run android` builds/runs native Android.
 
+### Mock AI mode (offline demo)
+
+To demo chats without connecting to OpenAI/Hume:
+
+1. Set the flag in your `.env`:
+
+```
+EXPO_PUBLIC_USE_MOCK_AI=true
+```
+
+2. Restart Expo with a clear cache:
+
+```
+npx expo start --clear
+```
+
+When enabled, Aura uses `/api/mockReply` (with local fallback) to generate varied, emotionally intelligent replies within ~1s, avoiding GPT calls.
+
 ## Microphone & Audio Permissions
 
 Aura records and plays audio. Permissions are configured statically and requested at runtime:

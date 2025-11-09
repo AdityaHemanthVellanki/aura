@@ -27,8 +27,6 @@ if (cfg.apiKey && cfg.projectId && cfg.appId) {
   } catch (err) {
     console.warn('Failed to initialize Firebase client:', err);
   }
-} else {
-  console.warn('Firebase env not set. Skipping client init.');
 }
 
 export { app, auth, storage, db };

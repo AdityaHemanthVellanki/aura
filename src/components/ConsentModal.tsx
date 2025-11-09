@@ -1,49 +1,45 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, Switch, TextInput } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from './ThemeProvider';
-import { MicRecordButton } from './MicRecordButton';
-import { PrimaryButton } from './PrimaryButton';
+import { AutoRecorder } from './AutoRecorder';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (evidenceTranscript: string, recordedUri?: string) => void;
+  muted?: boolean;
+  onRecorded: (uri: string | null, durationSec: number) => void;
 };
 
-export const ConsentModal: React.FC<Props> = ({ visible, onClose, onConfirm }) => {
+export const ConsentModal: React.FC<Props> = ({ visible, onClose, muted = false, onRecorded }) => {
   const t = useTheme();
-  const [checked, setChecked] = useState(false);
-  const [phraseUri, setPhraseUri] = useState<string | undefined>(undefined);
-  const [evidenceText, setEvidenceText] = useState(
-    'I consent to Aura creating a digital version of my voice'
-  );
-
-  const confirm = () => {
-    if (!checked) return;
-    onConfirm(evidenceText, phraseUri);
-  };
+  const [manualRecordingActive, setManualRecordingActive] = useState(false);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.modal, { backgroundColor: t.colors.background }]}>
-          <Text style={[styles.title, { color: t.colors.textPrimary }]}>Voice Cloning Consent</Text>
-          <Text style={[styles.text, { color: t.colors.textSecondary }]}>I consent to Aura creating a synthetic voice using my recorded audio. I confirm these recordings are my voice and I give permission for the app to create a voice clone. I understand I can delete my data and voice clone at any time.</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 12 }}>
-            <Switch value={checked} onValueChange={setChecked} />
-            <Text style={{ marginLeft: 8 }}>I agree</Text>
+        <View style={[styles.card, { backgroundColor: t.colors.background }]}>
+          <Text style={[styles.title, { color: t.colors.textPrimary }]}>Voice Consent</Text>
+          <Text style={{ color: t.colors.textSecondary, marginTop: 8 }}>
+            Please say: “I consent to Aura creating a digital version of my voice.”
+          </Text>
+          <View style={{ marginTop: 16 }}>
+            {!muted ? (
+              <AutoRecorder active={true} maxDurationSec={10} onRecorded={onRecorded} muted={muted} />
+            ) : (
+              <>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Record your consent" onPress={() => setManualRecordingActive(true)} style={{ marginTop: 8 }}>
+                  <Text style={{ color: t.colors.black, fontWeight: '700' }}>Record</Text>
+                </TouchableOpacity>
+                {manualRecordingActive && (
+                  <AutoRecorder active={true} maxDurationSec={10} onRecorded={(uri, dur) => { setManualRecordingActive(false); onRecorded(uri, dur); }} muted={muted} />
+                )}
+              </>
+            )}
           </View>
-          <Text style={[styles.text, { color: t.colors.textSecondary, marginTop: 8 }]}>Authorization phrase</Text>
-          <MicRecordButton onRecorded={(uri) => setPhraseUri(uri)} />
-          <Text style={[styles.text, { color: t.colors.textSecondary, marginTop: 12 }]}>Transcript (optional)</Text>
-          <TextInput
-            value={evidenceText}
-            onChangeText={setEvidenceText}
-            style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: '#ccc', borderRadius: 8, padding: 8, marginTop: 6 }}
-          />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
-            <PrimaryButton title="Cancel" onPress={onClose} />
-            <PrimaryButton title="Confirm" onPress={confirm} disabled={!checked} />
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close" onPress={onClose}>
+              <Text style={{ color: t.colors.textPrimary }}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -52,9 +48,8 @@ export const ConsentModal: React.FC<Props> = ({ visible, onClose, onConfirm }) =
 };
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'center', alignItems: 'center' },
-  modal: { width: '90%', borderRadius: 16, padding: 16 },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
-  text: { fontSize: 14 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' },
+  card: { width: '88%', borderRadius: 16, padding: 16 },
+  title: { fontSize: 18, fontWeight: '700' },
 });
 

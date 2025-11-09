@@ -1,10 +1,39 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { storage } from './firebaseClient';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
-const baseURL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000'; // Set EXPO_PUBLIC_SERVER_URL in .env
+function deriveCandidates(): string[] {
+  const envUrl = process.env.EXPO_PUBLIC_SERVER_URL?.trim();
+  const hostFromExpo = (Constants as any)?.expoConfig?.hostUri?.split(':')[0] || (Constants as any)?.expoGoConfig?.debuggerHost?.split(':')[0];
+  const candidates: string[] = [];
+  if (envUrl) candidates.push(envUrl);
+  if (hostFromExpo) candidates.push(`http://${hostFromExpo}:3000`);
+  if (Platform.OS === 'android') candidates.push('http://10.0.2.2:3000');
+  candidates.push('http://localhost:3000');
+  return Array.from(new Set(candidates));
+}
 
-export const api = axios.create({ baseURL });
+const CANDIDATES = deriveCandidates();
+let idx = 0;
+export const api = axios.create({ baseURL: CANDIDATES[idx] });
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const message: string = (error?.message || '').toLowerCase();
+    const cfg = error?.config;
+    // Retry on network errors with next candidate baseURL
+    if (cfg && (message.includes('network error') || message.includes('failed')) && idx < CANDIDATES.length - 1) {
+      idx += 1;
+      const next = CANDIDATES[idx];
+      api.defaults.baseURL = next;
+      return api.request({ ...cfg, baseURL: next });
+    }
+    throw error;
+  }
+);
 
 export async function uploadAudio(fileUri: string, filename: string, userId: string) {
   if (!storage) {
